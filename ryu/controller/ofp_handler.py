@@ -24,6 +24,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import set_ev_handler
 from ryu.controller.handler import HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER,\
     MAIN_DISPATCHER
+from ryu.ofproto import ofp_versions
 
 
 # The state transition: HANDSHAKE -> CONFIG -> MAIN
@@ -44,6 +45,36 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(OFPHandler, self).__init__(*args, **kwargs)
         self.name = 'ofp_event'
+
+    def _ofp_versoin_to_string(ofp_versions_):
+        # 0x00 isn't used. wire protocol starts at 0x01
+        if not ofp_versions_:
+            return 'None'
+
+        try:
+            return [ofp_versions.ofp_version_to_string(ofp_version)
+                    for ofp_version in sorted(ofp_versions_)]
+        except TypeError:
+            # single integer. not iterable
+            return [ofp_versions.ofp_version_to_string(ofp_versions_)]
+
+    @staticmethod
+    def _hello_failed_message(received_versions, sent_versions,
+                              negotiated_versions, usable_versions,
+                              supported_versions):
+        # TODO: show (ip, port) of the switch.
+        return ('No compatible OpenFlow version found '
+                'between switch and controller: '
+                'OF versions received from switch is %s.'
+                'OF versions sent to switch is %s.'
+                'The negotiated result is %s.'
+                'But found usable versions is %s.'
+                'If possible, set the switch to use one of OF versions %s.'
+                % (OFPHandler._ofp_version_to_string(received_versions),
+                   OFPHandler._ofp_version_to_string(sent_versions),
+                   OFPHandler._ofp_version_to_string(negotiated_versions),
+                   OFPHandler._ofp_version_to_string(usable_versions),
+                   OFPHandler._ofp_version_to_string(supported_versions)))
 
     def _hello_failed(self, datapath, error_desc):
         self.logger.error(error_desc)
@@ -84,15 +115,10 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
                 # max of OF 1.2 from Ryu and supported_ofp_version = (1.2, )
                 # negotiated version = 1.1
                 # usable version = None
-                error_desc = (
-                    'no compatible version found: '
-                    'switch versions %s controller version 0x%x, '
-                    'the negotiated version is 0x%x, '
-                    'but no usable version found. '
-                    'If possible, set the switch to use one of OF version %s'
-                    % (switch_versions, max(datapath.supported_ofp_version),
-                       max(negotiated_versions),
-                       sorted(datapath.supported_ofp_version)))
+                error_desc = self._hello_failed_message(
+                    switch_versions, max(datapath.supported_ofp_version),
+                    max(negotiated_versions), None,
+                    datapath.supported_ofp_version)
                 self._hello_failed(datapath, error_desc)
                 return
             if (negotiated_versions and usable_versions and
@@ -105,19 +131,13 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
                 #
                 # TODO: In order to get the version 1.0, Ryu need to send
                 # supported verions.
-                error_desc = (
-                    'no compatible version found: '
-                    'switch versions 0x%x controller version 0x%x, '
-                    'the negotiated version is %s but found usable %s. '
-                    'If possible, '
-                    'set the switch to use one of OF version %s' % (
-                        max(switch_versions),
-                        max(datapath.supported_ofp_version),
-                        sorted(negotiated_versions),
-                        sorted(usable_versions), sorted(usable_versions)))
+                self._hello_failed_message(
+                    max(switch_versions), max(datapath.supported_ofp_version),
+                    negotiated_versions, usable_versions, usable_versions)
                 self._hello_failed(datapath, error_desc)
                 return
         else:
+            negotiated_versions = None
             usable_versions = set(version for version
                                   in datapath.supported_ofp_version
                                   if version <= msg.version)
@@ -151,20 +171,16 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
                 # and optionally an ASCII string explaining the situation
                 # in data, and then terminate the connection.
                 version = max(usable_versions)
-                error_desc = (
-                    'no compatible version found: '
-                    'switch 0x%x controller 0x%x, but found usable 0x%x. '
-                    'If possible, set the switch to use OF version 0x%x' % (
-                        msg.version, datapath.ofproto.OFP_VERSION,
-                        version, version))
+                error_desc = self._hello_failed_message(
+                    msg.version, datapath.ofproto.OFP_VERSION,
+                    None, None, datapath.ofproto.OFP_VERSION)
                 self._hello_failed(datapath, error_desc)
                 return
 
         if not usable_versions:
-            error_desc = (
-                'unsupported version 0x%x. '
-                'If possible, set the switch to use one of the versions %s' % (
-                    msg.version, sorted(datapath.supported_ofp_version)))
+            error_desc = self._hello_failed_message(
+                msg.version, max(datapath.supported_ofp_version),
+                negotiated_versions, None, datapath.supported_ofp_version)
             self._hello_failed(datapath, error_desc)
             return
         datapath.set_version(max(usable_versions))
