@@ -65,6 +65,11 @@ class RyuApp(object):
         self.events = Queue()
         self.replies = Queue()
         self.logger = logging.getLogger(self.name)
+
+    def start(self):
+        """
+        Hook that is called after startup initialization is done.
+        """
         self.threads.append(gevent.spawn(self._event_loop))
 
     def register_handler(self, ev_cls, handler):
@@ -228,6 +233,9 @@ class AppManager(object):
                 LOG.debug("  PROVIDES %s TO %s" % (ev_cls.__name__, list))
             for ev_cls in i.event_handlers.keys():
                 LOG.debug("  CONSUMES %s" % (ev_cls.__name__,))
+
+        for app in self.applications.values():
+            app.start()
 
     def close(self):
         def close_all(close_dict):
