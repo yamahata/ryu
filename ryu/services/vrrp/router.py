@@ -56,6 +56,9 @@ class Timer(object):
         self._thread.join()
         self._thread = None
 
+    def is_running(self):
+        return self._thread is not None
+
     def _timer(self, interval):
         # Avoid cancellation during execution of self._callable()
         cancel = self._event.wait(interval)
@@ -117,6 +120,10 @@ class VRRPState(object):
         pass
 
     @abc.abstractmethod
+    def preempt_delay(self, ev):
+        pass
+
+    @abc.abstractmethod
     def vrrp_received(self, ev):
         pass
 
@@ -158,6 +165,9 @@ class VRRPRouter(app_manager.RyuApp):
     class _EventAdver(event.EventBase):
         pass
 
+    class _EventPreemptDelay(event.EventBase):
+        pass
+
     def __init__(self, *args, **kwargs):
         super(VRRPRouter, self).__init__(*args, **kwargs)
         self.name = kwargs['name']
@@ -171,6 +181,8 @@ class VRRPRouter(app_manager.RyuApp):
 
         self.master_down_timer = TimerEventSender(self, self._EventMasterDown)
         self.adver_timer = TimerEventSender(self, self._EventAdver)
+        self.preempt_delay_timer = TimerEventSender(self,
+                                                    self._EventPreemptDelay)
         self.register_observer(self._EventMasterDown, self.name)
         self.register_observer(self._EventAdver, self.name)
 
@@ -213,6 +225,10 @@ class VRRPRouter(app_manager.RyuApp):
     def adver_handler(self, ev):
         self.state_impl.adver(ev)
 
+    @handler.set_ev_handler(_EventPreemptDelay)
+    def preempt_delay_handler(self, ev):
+        self.state_impl.preempt_delay(ev)
+
     @handler.set_ev_handler(vrrp_event.EventVRRPReceived)
     def vrrp_received_handler(self, ev):
         self.state_impl.vrrp_received(ev)
@@ -231,6 +247,8 @@ class VRRPRouter(app_manager.RyuApp):
             config.advertisement_interval = ev.advertisement_interval
         if ev.preempt_mode is not None:
             config.preempt_mode = ev.preempt_mode
+        if ev.preempt_delay is not None:
+            config.preempt_delay = ev.preempt_delay
         if ev.accept_mode is not None:
             config.accept_mode = ev.accept_mode
 
@@ -252,6 +270,10 @@ class VRRPV2StateInitialize(VRRPState):
 
     def adver(self, ev):
         self.vrrp_router.logger.warn('%s adver', self.__class__.__name__)
+
+    def preempt_delay(self, ev):
+        self.vrrp_router.logger.warn('%s preempt_delay',
+                                     self.__class__.__name__)
 
     def vrrp_received(self, ev):
         self.vrrp_router.logger.warn('%s vrrp_received',
@@ -283,6 +305,10 @@ class VRRPV2StateMaster(VRRPState):
     def adver(self, ev):
         self.vrrp_router.logger.debug('%s adver', self.__class__.__name__)
         self._adver()
+
+    def preempt_delay(self, ev):
+        self.vrrp_router.logger.warn('%s preempt_delay',
+                                     self.__class__.__name__)
 
     def vrrp_received(self, ev):
         vrrp_router = self.vrrp_router
@@ -340,6 +366,7 @@ class VRRPV2StateBackup(VRRPState):
         #       actual router sending GARP and VRRPRouter becoming
         #       master/backup
 
+        vrrp_router.preempt_delay_timer.cancel()
         vrrp_router.state_change(vrrp_event.VRRP_STATE_MASTER)
         vrrp_router.adver_timer.start(
             vrrp_router.config.advertisement_interval)
@@ -356,6 +383,11 @@ class VRRPV2StateBackup(VRRPState):
         vrrp_router.logger.debug('%s adver %s %s' % (
             self.__class__.__name__, ev.__class__.__name__, vrrp_router.state))
 
+    def preempt_delay(self, ev):
+        self.vrrp_router.logger.warn('%s preempt_delay',
+                                     self.__class__.__name__)
+        self._master_down()
+
     def vrrp_received(self, ev):
         vrrp_router = self.vrrp_router
         vrrp_router.logger.debug('%s vrrp_received', self.__class__.__name__)
@@ -367,6 +399,13 @@ class VRRPV2StateBackup(VRRPState):
             config = vrrp_router.config
             params = vrrp_router.params
             if (not config.preempt_mode or config.priority <= vrrp_.priority):
+                vrrp_router.preempt_delay_timer.cancel()
+                vrrp_router.master_down_timer.start(
+                    params.master_down_interval)
+            elif (config.preempt_mode and config.preempt_delay > 0 and
+                  config.priority > vrrp_.priority):
+                if not vrrp_router.preempt_delay_timer.is_running():
+                    vrrp_router.preempt_delay_timer.start(config.preempt_delay)
                 vrrp_router.master_down_timer.start(
                     params.master_down_interval)
 
@@ -376,6 +415,7 @@ class VRRPV2StateBackup(VRRPState):
                                  self.__class__.__name__)
 
         vrrp_router.master_down_timer.cancel()
+        vrrp_router.preempt_delay_timer.cancel()
         vrrp_router.state_change(vrrp_event.VRRP_STATE_INITIALIZE)
 
     def vrrp_config_change_request(self, ev):
@@ -385,6 +425,8 @@ class VRRPV2StateBackup(VRRPState):
         if ev.priority is not None and vrrp_router.config.address_owner:
             vrrp_router.master_down_timer.cancel()
             self._master_down()
+        if ev.preempt_mode is not None or ev.preempt_delay is not None:
+            vrrp_router.preempt_delay_timer.cancel()
 
 
 @VRRPRouter.register(vrrp.VRRP_VERSION_V2)
@@ -431,6 +473,10 @@ class VRRPV3StateInitialize(VRRPState):
     def adver(self, ev):
         self.vrrp_router.logger.debug('%s adver', self.__class__.__name__)
 
+    def preempt_delay(self, ev):
+        self.vrrp_router.logger.warn('%s preempt_delay',
+                                     self.__class__.__name__)
+
     def vrrp_received(self, ev):
         self.vrrp_router.logger.debug('%s vrrp_received',
                                       self.__class__.__name__)
@@ -461,6 +507,10 @@ class VRRPV3StateMaster(VRRPState):
     def adver(self, ev):
         self.vrrp_router.logger.debug('%s adver', self.__class__.__name__)
         self._adver()
+
+    def preempt_delay(self, ev):
+        self.vrrp_router.logger.warn('%s preempt_delay',
+                                     self.__class__.__name__)
 
     def vrrp_received(self, ev):
         vrrp_router = self.vrrp_router
@@ -530,6 +580,7 @@ class VRRPV3StateBackup(VRRPState):
         #       actual router sending GARP and VRRPRouter becoming
         #       master/backup
 
+        vrrp_router.preempt_delay_timer.cancel()
         vrrp_router.state_change(vrrp_event.VRRP_STATE_MASTER)
         vrrp_router.adver_timer.start(
             vrrp_router.config.advertisement_interval)
@@ -546,6 +597,11 @@ class VRRPV3StateBackup(VRRPState):
         vrrp_router.logger.debug('adver %s %s %s' % (
             self.__class__.__name__, ev.__class__.__name__, vrrp_router.state))
 
+    def preempt_delay(self, ev):
+        self.vrrp_router.logger.warn('%s preempt_delay',
+                                     self.__class__.__name__)
+        self._master_down()
+
     def vrrp_received(self, ev):
         vrrp_router = self.vrrp_router
         vrrp_router.logger.debug('%s vrrp_received', self.__class__.__name__)
@@ -560,12 +616,19 @@ class VRRPV3StateBackup(VRRPState):
                 params.master_adver_interval = vrrp_.max_adver_int_in_sec
                 vrrp_router.master_down_timer.start(
                     params.master_down_interval)
+            elif (config.preempt_mode and config.preempt_delay > 0 and
+                  config.priority > vrrp_.priority):
+                if not vrrp_router.preempt_delay_timer.is_running():
+                    vrrp_router.preempt_delay_timer.start(config.preempt_delay)
+                vrrp_router.master_down_timer.start(
+                    params.master_down_interval)
 
     def vrrp_shutdown_request(self, ev):
         vrrp_router = self.vrrp_router
         vrrp_router.logger.debug('%s vrrp_shutdown_request',
                                  self.__class__.__name__)
 
+        vrrp_router.preempt_delay_timer.cancel()
         vrrp_router.master_down_timer.cancel()
         vrrp_router.state_change(vrrp_event.VRRP_STATE_INITIALIZE)
 
@@ -576,6 +639,8 @@ class VRRPV3StateBackup(VRRPState):
         if ev.priority is not None and vrrp_router.address_owner:
             vrrp_router.master_down_timer.cancel()
             self._master_down()
+        if ev.preempt_mode is not None or ev.preempt_delay is not None:
+            vrrp_router.preempt_delay_timer.cancel()
 
 
 @VRRPRouter.register(vrrp.VRRP_VERSION_V3)
