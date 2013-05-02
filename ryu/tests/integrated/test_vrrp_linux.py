@@ -25,7 +25,7 @@ PYTHONPATH=. ./bin/ryu-manager --verbose \
 
 Example:
 Use namespace not to send VRRP packet to outside
-another vrrp daemon can be run under vrrpd-ump name space if you like.
+another vrrp daemon can be run under vrrpd-dump name space if you like.
 
   -----          ----------------------
   |Ryu|<--veth-->|vrrp-dump name space|

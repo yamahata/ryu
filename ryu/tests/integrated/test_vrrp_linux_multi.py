@@ -24,10 +24,6 @@ PYTHONPATH=. ./bin/ryu-manager --verbose \
 
 ./ryu/services/vrrp/dumper.py is optional.
 
-Example:
-Use namespace not to send VRRP packet to outside
-another vrrp daemon can be run under vrrpd-ump name space if you like.
-
                    ----------------
       /--<--veth-->|              |
    Ryu             | linux bridge |<--veth--> command to generate packets
