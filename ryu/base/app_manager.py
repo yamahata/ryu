@@ -20,7 +20,6 @@ import logging
 
 from ryu import utils
 from ryu.controller.handler import register_instance
-from ryu.controller.controller import Datapath
 from ryu.controller import event
 from ryu.controller.event import EventRequestBase, EventReplyBase
 from ryu.lib import hub
@@ -267,6 +266,8 @@ class AppManager(object):
         # Yes, maybe for slicing.
         LOG.info('instantiating app %s of %s', app_name, cls.__name__)
 
+        # avoid circular import
+        from ryu.controller.controller import Datapath
         if hasattr(cls, 'OFP_VERSIONS'):
             for k in Datapath.supported_ofp_version.keys():
                 if not k in cls.OFP_VERSIONS:
