@@ -85,6 +85,9 @@ class RyuApp(object):
         self._send_event(self._event_stop)
         hub.joinall(self.threads)
 
+    def joinall(self):
+        hub.joinall(self.threads)
+
     def register_handler(self, ev_cls, handler):
         assert callable(handler)
         self.event_handlers.setdefault(ev_cls, [])
@@ -325,3 +328,7 @@ class AppManager(object):
 
         close_all(self.applications)
         close_all(self.contexts)
+
+    def joinall(self):
+        for app in self.applications.values():
+            app.joinall()
