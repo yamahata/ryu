@@ -23,8 +23,7 @@ import traceback
 import random
 import ssl
 
-import ryu.base.app_manager
-
+from ryu.base import app_manager
 from ryu.ofproto import ofproto_common
 from ryu.ofproto import ofproto_parser
 from ryu.ofproto import ofproto_v1_0
@@ -55,14 +54,12 @@ CONF.register_cli_opts([
 ])
 
 
-class OpenFlowController(object):
-    def __init__(self):
-        super(OpenFlowController, self).__init__()
+class OpenFlowController(app_manager.RyuApp):
+    def __init__(self, *args, **kwargs):
+        super(OpenFlowController, self).__init__(*args, **kwargs)
 
-    # entry point
-    def __call__(self):
-        #LOG.debug('call')
-        self.server_loop()
+    def start(self):
+        self.threads.append(hub.spawn(self.server_loop))
 
     def server_loop(self):
         if CONF.ctl_privkey is not None and CONF.ctl_cert is not None:
@@ -126,7 +123,7 @@ class Datapath(object):
         self.id = None  # datapath_id is unknown yet
         self.ports = None
         self.flow_format = ofproto_v1_0.NXFF_OPENFLOW10
-        self.ofp_brick = ryu.base.app_manager.lookup_service_brick('ofp_event')
+        self.ofp_brick = app_manager.lookup_service_brick('ofp_event')
         self.set_state(handler.HANDSHAKE_DISPATCHER)
 
     def close(self):

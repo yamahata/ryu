@@ -63,7 +63,8 @@ def main():
         cgitb.enable(format='text')
 
     # always enable ofp for now.
-    app_lists = CONF.app_lists + CONF.app + ['ryu.controller.ofp_handler']
+    app_lists = CONF.app_lists + CONF.app + ['ryu.controller.controller',
+                                             'ryu.controller.ofp_handler']
 
     app_mgr = AppManager.get_instance()
     app_mgr.load_apps(app_lists)
@@ -71,17 +72,13 @@ def main():
     app_mgr.instantiate_apps(**contexts)
 
     services = []
-
-    ctlr = controller.OpenFlowController()
-    thr = hub.spawn(ctlr)
-    services.append(thr)
-
     webapp = wsgi.start_service(app_mgr)
     if webapp:
         thr = hub.spawn(webapp)
         services.append(thr)
 
     try:
+        app_mgr.joinall()
         hub.joinall(services)
     finally:
         app_mgr.close()
