@@ -147,9 +147,9 @@ class VRRPManager(app_manager.RyuApp):
             if instance is None:
                 instance_list = []
             else:
-                instance_list = [vrrp_event.VRRPInstance(instance_name,
-                                                         instance.config,
-                                                         instance.interface)]
+                instance_list = [vrrp_event.VRRPInstance(
+                    instance_name, instance.monitor_name,
+                    instance.config, instance.interface)]
 
         vrrp_list = vrrp_event.EventVRRPListReply(instance_list)
         self.reply_to_request(ev, vrrp_list)
