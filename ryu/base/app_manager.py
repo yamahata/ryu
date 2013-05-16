@@ -253,14 +253,16 @@ class AppManager(object):
     @staticmethod
     def _report_brick(name, app):
         LOG.debug("BRICK %s" % name)
-        for ev_cls, list_ in app.observers.items():
+        for ev_cls, list_ in sorted(app.observers.items(),
+                                    key=lambda e: e[0].__name__):
             LOG.debug("  PROVIDES %s TO %s" % (ev_cls.__name__, list_))
-        for ev_cls in app.event_handlers.keys():
+        for ev_cls in sorted(app.event_handlers.keys(),
+                             key=lambda ev_cls: ev_cls.__name__):
             LOG.debug("  CONSUMES %s" % (ev_cls.__name__,))
 
     @staticmethod
     def report_bricks():
-        for brick, i in SERVICE_BRICKS.items():
+        for brick, i in sorted(SERVICE_BRICKS.items()):
             AppManager._report_brick(brick, i)
 
     def _instantiate(self, app_name, cls, *args, **kwargs):
