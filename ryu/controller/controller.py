@@ -59,9 +59,9 @@ class OpenFlowController(app_manager.RyuApp):
         super(OpenFlowController, self).__init__(*args, **kwargs)
 
     def start(self):
-        self.threads.append(hub.spawn(self.server_loop))
+        self.threads.append(hub.spawn(self._server_loop))
 
-    def server_loop(self):
+    def _server_loop(self):
         if CONF.ctl_privkey is not None and CONF.ctl_cert is not None:
             if CONF.ca_certs is not None:
                 server = StreamServer((CONF.ofp_listen_host,
