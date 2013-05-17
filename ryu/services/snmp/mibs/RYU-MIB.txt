@@ -1,0 +1,149 @@
+RYU-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+   MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+   enterprises, Unsigned32
+							FROM SNMPv2-SMI
+   TEXTUAL-CONVENTION, RowStatus			FROM SNMPv2-TC
+;
+
+ryuMIB MODULE-IDENTITY
+    LAST-UPDATED "201305170000Z"
+    ORGANIZATION "Ryu project"
+    CONTACT-INFO
+             "TODO"
+    DESCRIPTION
+             "The MIB module for Ryu project
+              TODO
+             "
+    REVISION        "201305170000Z"
+    DESCRIPTION
+            "The first revision"
+    ::= { enterprises 50000 }
+
+-- TODO: update the value once Ryu project get the OID
+--       This is the temporal one
+
+
+ryuNotifications	OBJECT IDENTIFIER ::= { ryuMIB 1 }
+openFlow		OBJECT IDENTIFIER ::= { ryuMIB 2 }
+
+---
+--- basic type definitions
+---
+DatapathID ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT	"1x"
+    STATUS	current
+    DESCRIPTION
+	"datapath id uint64_t"
+    SYNTAX	OCTET STRING (SIZE (8))
+
+
+--
+-- openFlow
+--
+
+datapathTable OBJECT-TYPE
+    SYNTAX	SEQUENCE OF DatapathEntry
+    MAX-ACCESS	not-accessible
+    STATUS	current
+    DESCRIPTION
+        "TODO
+	"
+    ::= { openFlow 1 }
+
+datapathEntry OBJECT-TYPE
+    SYNTAX	DatapathEntry
+    MAX-ACCESS	not-accessible
+    STATUS	current
+    DESCRIPTION
+	"datapath entry"
+    INDEX	{ dpIndex }
+    ::= { datapathTable 1 }
+
+DatapathEntry ::= SEQUENCE {
+    dpIndex			DatapathID,
+    dpID			DatapathID,
+    dpNBuffers			Unsigned32,
+    dpNTables			Unsigned32,
+    dpAuxiliaryID		Unsigned32,
+    dpCapabilities		Unsigned32,
+    dpRowStatus			RowStatus
+}
+
+dpIndex OBJECT-TYPE
+    SYNTAX	DatapathID
+    MAX-ACCESS	not-accessible
+    STATUS	current
+    DESCRIPTION
+         "TODO"
+    ::= { datapathEntry 1 }
+
+dpID OBJECT-TYPE
+    SYNTAX	DatapathID
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+	"datapath id"
+    ::= { datapathEntry 2 }
+
+dpNBuffers OBJECT-TYPE
+    SYNTAX	Unsigned32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+        "nbuffers"
+    ::= { datapathEntry 3 }
+
+dpNTables OBJECT-TYPE
+    SYNTAX	Unsigned32 (0..255)
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+	"n tables"
+    ::= { datapathEntry 4 }
+
+dpAuxiliaryID OBJECT-TYPE
+    SYNTAX	Unsigned32 (0..255)
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+	"auxiliary_id"
+    ::= { datapathEntry 5 }
+
+dpCapabilities OBJECT-TYPE
+    SYNTAX	Unsigned32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+	"capabilities"
+    ::= { datapathEntry 6 }
+
+dpRowStatus OBJECT-TYPE
+    SYNTAX	RowStatus
+    MAX-ACCESS	read-create
+    STATUS	current
+    DESCRIPTION
+	"row status"
+    ::= { datapathEntry 7 }
+
+--
+-- Notification Type
+--
+
+openflowNotifications OBJECT IDENTIFIER ::= { ryuNotifications 0 }
+
+datapathConnected NOTIFICATION-TYPE
+    OBJECTS	{ dpID }
+    STATUS	current
+    DESCRIPTION
+	"datapath connected"
+    ::= { openflowNotifications 1 }
+
+datapathDisconnected NOTIFICATION-TYPE
+    OBJECTS	{ dpID }
+    STATUS	current
+    DESCRIPTION
+	"datapath disconnected"
+    ::= { openflowNotifications 2 }
+
+END
