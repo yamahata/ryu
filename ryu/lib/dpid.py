@@ -17,10 +17,15 @@
 # Internal representation of datapath id is quad int
 # string representation is in hex without '0x'
 
+import struct
+
 _DPID_LEN = 16
 _DPID_LEN_STR = str(_DPID_LEN)
 _DPID_FMT = '%0' + _DPID_LEN_STR + 'x'
 DPID_PATTERN = r'[0-9a-f]{%d}' % _DPID_LEN
+_DPID_PACK_STR = '!Q'
+_DPID_PACK_SIZE = 8
+assert struct.calcsize(_DPID_PACK_STR) == _DPID_PACK_SIZE
 
 
 def dpid_to_str(dpid):
@@ -30,3 +35,11 @@ def dpid_to_str(dpid):
 def str_to_dpid(dpid_str):
     assert len(dpid_str) == _DPID_LEN
     return int(dpid_str, 16)
+
+
+def dpid_to_buf(dpid):
+    return struct.pack(_DPID_PACK_STR, dpid)
+
+
+def buf_to_dpid(dpid_buf):
+    return struct.unpack(_DPID_PACK_STR, dpid_buf)
