@@ -18,11 +18,7 @@ ryuMIB MODULE-IDENTITY
     REVISION        "201305170000Z"
     DESCRIPTION
             "The first revision"
-    ::= { enterprises 50000 }
-
--- TODO: update the value once Ryu project get the OID
---       This is the temporal one
-
+    ::= { enterprises 41786 }
 
 ryuNotifications	OBJECT IDENTIFIER ::= { ryuMIB 1 }
 openFlow		OBJECT IDENTIFIER ::= { ryuMIB 2 }
