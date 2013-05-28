@@ -36,7 +36,7 @@ for parser_file_name in _OFPROTO_PARSER_FILE_NAMES:
     try:
         parser_mod = utils.import_module(parser_mod_name)
         consts_mod = utils.import_module(consts_mod_name)
-    except:
+    except ImportError:
         continue
 
     assert consts_mod.OFP_VERSION not in _OFPROTO_MODULES
