@@ -96,6 +96,12 @@ def import_module(modname):
     return _import(name)
 
 
+def import_class(import_name):
+    modname, _sep, cls_name = import_name.rpartition('.')
+    __import__(modname)
+    return getattr(sys.modules[modname], cls_name)
+
+
 def round_up(x, y):
     return ((x + y - 1) / y) * y
 
