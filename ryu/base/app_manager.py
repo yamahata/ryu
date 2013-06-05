@@ -17,6 +17,7 @@
 import inspect
 import itertools
 import logging
+import traceback
 
 from ryu import utils
 from ryu.controller.handler import register_instance
@@ -27,6 +28,35 @@ from ryu.lib import hub
 LOG = logging.getLogger('ryu.base.app_manager')
 
 SERVICE_BRICKS = {}
+
+
+def _load_cls(parent_clses, name):
+    try:
+        mod = utils.import_module(name)
+    except ImportError:
+        try:
+            cls = utils.import_class(name)
+        except ImportError, e:
+            LOG.debug('ImportError %s %s', e, traceback.format_exc())
+            return None
+        if not issubclass(cls, parent_clses):
+            return None
+        return cls
+
+    clses = inspect.getmembers(
+        mod, lambda cls: (inspect.isclass(cls) and
+                          issubclass(cls, parent_clses)))
+    if clses:
+        return clses[0][1]
+    return None
+
+
+def _load_bundle_cls(name):
+    return _load_cls(RyuBundle, name)
+
+
+def _load_app_cls(name):
+    return _load_cls(RyuApp, name)
 
 
 def lookup_service_brick(name):
@@ -175,6 +205,17 @@ class RyuApp(object):
         pass
 
 
+class RyuBundle(object):
+    APPS = []
+
+
+def _split(str_or_class):
+    if inspect.isclass(str_or_class):
+        return [str_or_class]
+    assert isinstance(str_or_class, basestring)
+    return str_or_class.split(',')
+
+
 class AppManager(object):
     # singletone
     _instance = None
@@ -191,34 +232,65 @@ class AppManager(object):
         self.contexts_cls = {}
         self.contexts = {}
 
-    def load_app(self, name):
-        mod = utils.import_module(name)
-        clses = inspect.getmembers(mod, lambda cls: (inspect.isclass(cls) and
-                                                     issubclass(cls, RyuApp)))
-        if clses:
-            return clses[0][1]
-        return None
+    def _setup_app(self, app_cls_name, app_cls):
+        # for now, only single instance of a given module
+        # Do we need to support multiple instances?
+        # Yes, maybe for slicing.
+        assert app_cls_name not in self.applications_cls
+        assert issubclass(app_cls, RyuApp)
+        self.applications_cls[app_cls_name] = app_cls
+
+        for key, context_cls in app_cls.context_iteritems():
+            cls = self.contexts_cls.setdefault(key, context_cls)
+            assert cls == context_cls
 
     def load_apps(self, app_lists):
-        for app_cls_name in itertools.chain.from_iterable([app_list.split(',')
-                                                           for app_list
-                                                           in app_lists]):
-            LOG.info('loading app %s', app_cls_name)
+        bundle_loaded_apps = {}
+
+        for str_or_cls in itertools.chain.from_iterable([_split(app_list)
+                                                         for app_list
+                                                         in app_lists]):
+            if inspect.isclass(str_or_cls):
+                cls = str_or_cls
+                cls_name = cls.__name__
+            else:
+                cls = None
+                cls_name = str_or_cls
 
             # for now, only single instance of a given module
             # Do we need to support multiple instances?
             # Yes, maybe for slicing.
-            assert app_cls_name not in self.applications_cls
+            assert cls_name not in self.applications_cls
+            LOG.info('loading app %s', cls_name)
 
-            cls = self.load_app(app_cls_name)
             if cls is None:
+                cls = _load_bundle_cls(cls_name)
+                if cls is None:
+                    cls = _load_app_cls(cls_name)
+                    if cls is None:
+                        continue
+
+            if issubclass(cls, RyuBundle):
+                for app_cls in cls.APPS:
+                    if isinstance(app_cls, basestring):
+                        app_name = app_cls
+                        LOG.info('loading class %s', app_name)
+                        app_cls = _load_app_cls(app_name)
+                        if app_cls is None:
+                            raise ValueError('class %s can be loaded' %
+                                             app_name)
+                    else:
+                        app_name = app_cls.__name__
+                    bundle_loaded_apps.setdefault(app_name, app_cls)
+                    assert bundle_loaded_apps[app_name] == app_cls
                 continue
 
-            self.applications_cls[app_cls_name] = cls
+            self._setup_app(cls_name, cls)
 
-            for key, context_cls in cls.context_iteritems():
-                cls = self.contexts_cls.setdefault(key, context_cls)
-                assert cls == context_cls
+        LOG.debug('bundle_loaded_apps %s', bundle_loaded_apps)
+        for cls_name, cls in bundle_loaded_apps.iteritems():
+            if cls_name not in self.applications_cls:
+                self._setup_app(cls_name, cls)
 
     def create_contexts(self):
         for key, cls in self.contexts_cls.items():
