@@ -46,7 +46,7 @@ class RouterManager(app_manager.RyuApp):
         super(RouterManager, self).__init__(*args, **kwargs)
         self._args = args
         self._kwargs = kwargs
-        self.routers = {}
+        self.routers = {}  # instance name -> router name
 
     def _router_factory(self, instance_name, monitor_name, interface, config):
         cls = None
@@ -82,18 +82,18 @@ class RouterManager(app_manager.RyuApp):
                 self._initialize(ev)
             return
 
-        router = self.routers.get(ev.instance_name)
-        self.send_event(router.name, ev)
+        router_name = self.routers.get(ev.instance_name)
+        self.send_event(router_name, ev)
 
     def _initialize(self, ev):
         router = self._router_factory(ev.instance_name, ev.monitor_name,
                                       ev.interface, ev.config)
-        self.routers[ev.instance_name] = router
+        self.routers[ev.instance_name] = router.name
         self.send_event(router.name, ev)
         router.start()
 
     def _shutdown(self, ev):
-        router = self.routers.pop(ev.instance_name)
-        self.send_event(router.name, ev)
+        router_name = self.routers.pop(ev.instance_name)
+        self.send_event(router_name, ev)
         app_mgr = app_manager.AppManager.get_instance()
-        app_mgr.uninstantiate(router)
+        app_mgr.uninstantiate(router_name)

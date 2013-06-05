@@ -34,15 +34,12 @@ from ryu.services.vrrp import router as vrrp_router
 
 
 class VRRPInstance(object):
-    def __init__(self, name, monitor_name, config, interface,
-                 vrrp_router_, interface_monitor):
+    def __init__(self, name, monitor_name, config, interface):
         super(VRRPInstance, self).__init__()
         self.name = name                        # vrrp_router.name
         self.monitor_name = monitor_name        # interface_monitor.name
         self.config = config
         self.interface = interface
-        self.vrrp_router = vrrp_router_
-        self.interface_monitor = interface_monitor
 
 
 class VRRPManager(app_manager.RyuApp):
@@ -92,15 +89,14 @@ class VRRPManager(app_manager.RyuApp):
         #  vrrp_interface_monitor -> vrrp_router
         monitor.register_observer(vrrp_event.EventVRRPReceived, router.name)
 
-        instance = VRRPInstance(name, monitor.name,
-                                config, interface, router, monitor)
+        instance = VRRPInstance(name, monitor.name, config, interface)
         self._instances[name] = instance
         #self.logger.debug('report_bricks')
         #app_manager.AppManager.get_instance().report_bricks()   # debug
         monitor.start()
         router.start()
 
-        rep = vrrp_event.EventVRRPConfigReply(router.name, interface, config)
+        rep = vrrp_event.EventVRRPConfigReply(instance.name, interface, config)
         self.reply_to_request(ev, rep)
 
     def _proxy_event(self, ev):
@@ -109,7 +105,7 @@ class VRRPManager(app_manager.RyuApp):
         if not instance:
             self.logger.info('unknown vrrp router %s', name)
             return
-        self.send_event(instance.vrrp_router.name, ev)
+        self.send_event(instance.name, ev)
 
     @handler.set_ev_cls(vrrp_event.EventVRRPShutdownRequest)
     def shutdown_request_handler(self, ev):
@@ -130,8 +126,8 @@ class VRRPManager(app_manager.RyuApp):
         app_mgr = app_manager.AppManager.get_instance()
         while self.is_active or not self.shutdown.empty():
             instance = self.shutdown.get()
-            app_mgr.uninstantiate(instance.vrrp_router)
-            app_mgr.uninstantiate(instance.interface_monitor)
+            app_mgr.uninstantiate(instance.name)
+            app_mgr.uninstantiate(instance.monitor_name)
             del self._instances[instance.name]
 
     @handler.set_ev_cls(vrrp_event.EventVRRPListRequest)
