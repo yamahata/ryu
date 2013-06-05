@@ -40,6 +40,10 @@ class VRRPInstance(object):
         self.monitor_name = monitor_name        # interface_monitor.name
         self.config = config
         self.interface = interface
+        self.state = None
+
+    def state_changed(self, new_state):
+        self.state = new_state
 
 
 class VRRPManager(app_manager.RyuApp):
@@ -117,9 +121,10 @@ class VRRPManager(app_manager.RyuApp):
 
     @handler.set_ev_cls(vrrp_event.EventVRRPStateChanged)
     def state_change_handler(self, ev):
+        instance = self._instances.get(ev.instance_name, None)
+        assert instance is not None
+        instance.state_changed(ev.new_state)
         if ev.old_state and ev.new_state == vrrp_event.VRRP_STATE_INITIALIZE:
-            instance = self._instances.get(ev.instance_name, None)
-            assert instance is not None
             self.shutdown.put(instance)
 
     def _shutdown_loop(self):
@@ -136,7 +141,7 @@ class VRRPManager(app_manager.RyuApp):
         if instance_name is None:
             instance_list = [vrrp_event.VRRPInstance(
                 instance.name, instance.monitor_name,
-                instance.config, instance.interface)
+                instance.config, instance.interface, instance.state)
                 for instance in self._instances.values()]
         else:
             instance = self._instances.get(instance_name, None)
@@ -145,7 +150,7 @@ class VRRPManager(app_manager.RyuApp):
             else:
                 instance_list = [vrrp_event.VRRPInstance(
                     instance_name, instance.monitor_name,
-                    instance.config, instance.interface)]
+                    instance.config, instance.interface, instance.state)]
 
         vrrp_list = vrrp_event.EventVRRPListReply(instance_list)
         self.reply_to_request(ev, vrrp_list)
