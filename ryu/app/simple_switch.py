@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ryu.base import main as ryu_main
+ryu_main.early_init()
+
+
 import logging
 import struct
 
@@ -107,3 +111,13 @@ class SimpleSwitch(app_manager.RyuApp):
             self.logger.info("port modified %s", port_no)
         else:
             self.logger.info("Illeagal port state %s %s", port_no, reason)
+
+
+class SimpleSwitchBundle(app_manager.RyuBundle):
+    APPS = [
+        'ryu.controller.ofp_handler', SimpleSwitch
+    ]
+
+
+if __name__ == '__main__':
+    ryu_main.main([SimpleSwitchBundle], True)
