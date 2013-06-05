@@ -16,72 +16,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ryu.lib import hub
-hub.patch()
-
-# TODO:
-#   Right now, we have our own patched copy of ovs python bindings
-#   Once our modification is upstreamed and widely deployed,
-#   use it
-#
-# NOTE: this modifies sys.path and thus affects the following imports.
-# eg. oslo.config.cfg.
-import ryu.contrib
+from ryu.base import main as ryu_main
+ryu_main.early_init()
 
 from oslo.config import cfg
-import logging
-import sys
-
-from ryu import log
-log.early_init_log(logging.DEBUG)
-
-from ryu import flags
-from ryu import version
-from ryu.app import wsgi
-from ryu.base.app_manager import AppManager
-from ryu.controller import controller
-from ryu.topology import switches
 
 
 CONF = cfg.CONF
 CONF.register_cli_opts([
     cfg.ListOpt('app-lists', default=[],
                 help='application module name to run'),
-    cfg.MultiStrOpt('app', positional=True, default=[],
-                    help='application module name to run'),
-    cfg.BoolOpt('cgitb', default=False,
-                help='enable cgitb for more comprehensive traceback'),
 ])
 
 
 def main():
-    CONF(project='ryu', version='ryu-manager %s' % version)
-
-    log.init_log()
-    if CONF.cgitb:
-        import cgitb
-        cgitb.enable(format='text')
+    ryu_main.init()
 
     # always enable ofp for now.
-    app_lists = CONF.app_lists + CONF.app + ['ryu.controller.controller',
-                                             'ryu.controller.ofp_handler']
-
-    app_mgr = AppManager.get_instance()
-    app_mgr.load_apps(app_lists)
-    contexts = app_mgr.create_contexts()
-    app_mgr.instantiate_apps(**contexts)
-
-    services = []
-    webapp = wsgi.start_service(app_mgr)
-    if webapp:
-        thr = hub.spawn(webapp)
-        services.append(thr)
-
-    try:
-        app_mgr.joinall()
-        hub.joinall(services)
-    finally:
-        app_mgr.close()
+    app_lists = CONF.app_lists + ['ryu.controller.controller',
+                                  'ryu.controller.ofp_handler']
+    ryu_main.main(app_lists, True)
 
 
 if __name__ == "__main__":
