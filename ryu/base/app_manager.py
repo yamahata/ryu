@@ -298,9 +298,8 @@ class AppManager(object):
         if callable(close_method):
             close_method()
 
-    def uninstantiate(self, app):
-        name = app.name
-        self.applications.pop(name)
+    def uninstantiate(self, name):
+        app = self.applications.pop(name)
         unregister_app(app)
         for app_ in SERVICE_BRICKS.values():
             app_.unregister_observer_all_event(name)

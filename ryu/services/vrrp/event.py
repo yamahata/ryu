@@ -195,12 +195,13 @@ class EventVRRPStateChanged(event.EventBase):
 
 
 class VRRPInstance(object):
-    def __init__(self, instance_name, monitor_name, config, interface):
+    def __init__(self, instance_name, monitor_name, config, interface, state):
         super(VRRPInstance, self).__init__()
         self.instance_name = instance_name
         self.monitor_name = monitor_name
         self.config = config
         self.interface = interface
+        self.state = state
 
 
 class EventVRRPListRequest(event.EventRequestBase):

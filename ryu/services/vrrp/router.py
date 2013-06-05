@@ -635,7 +635,7 @@ class VRRPV3StateBackup(VRRPState):
         vrrp_router = self.vrrp_router
         vrrp_router.logger.warn('%s vrrp_config_change_request',
                                 self.__class__.__name__)
-        if ev.priority is not None and vrrp_router.address_owner:
+        if ev.priority is not None and vrrp_router.config.address_owner:
             vrrp_router.master_down_timer.cancel()
             self._master_down()
         if ev.preempt_mode is not None or ev.preempt_delay is not None:
