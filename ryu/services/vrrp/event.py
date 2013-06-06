@@ -216,7 +216,7 @@ class EventVRRPListRequest(event.EventRequestBase):
 
 class EventVRRPListReply(event.EventReplyBase):
     def __init__(self, instance_list):
-        super(EventVRRPListReply, self).__init__()
+        super(EventVRRPListReply, self).__init__(None)
         self.instance_list = instance_list
 
 
