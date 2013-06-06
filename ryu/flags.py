@@ -1,5 +1,5 @@
-# Copyright (C) 2011 Nippon Telegraph and Telephone Corporation.
-# Copyright (C) 2011 Isaku Yamahata <yamahata at valinux co jp>
+# Copyright (C) 2011, 2013 Nippon Telegraph and Telephone Corporation.
+# Copyright (C) 2011, 2013 Isaku Yamahata <yamahata at valinux co jp>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,24 @@ global flags
 
 from oslo.config import cfg
 
+
+# module does CONF.register_cli_options() on load
+def _register_cli_options(module_name):
+    try:
+        __import__(module_name)
+    except ImportError:
+        pass
+
+
+_register_cli_options('ryu.app.wsgi')
+_register_cli_options('ryu.log')
+_register_cli_options('ryu.topology.switches')
+# Add modules that call CONF.register_cli_options()
+
+
+# global options
 CONF = cfg.CONF
+
 
 CONF.register_cli_opts([
     # app/quantum_adapter
