@@ -29,10 +29,18 @@ class MacAddressAlreadyExist(ryu_exc.RyuException):
     message = 'port (%(dpid)s, %(port)s) has already mac %(mac_address)s'
 
 
+class NetworkPort(object):
+    def __init__(self, dpid, port_no):
+        super(NetworkPort, self).__init__()
+        self.dpid = dpid
+        self.port_no = port_no
+
+
 class EventNetworkDel(event.EventBase):
-    def __init__(self, network_id):
+    def __init__(self, network_id, ports):
         super(EventNetworkDel, self).__init__()
         self.network_id = network_id
+        self.ports = ports      # list of NetworkPort
 
 
 class EventNetworkPort(event.EventBase):
@@ -79,14 +87,12 @@ class Networks(dict):
 
     def remove_network(self, network_id):
         try:
-            network = self[network_id]
+            network = self.pop(network_id)
         except KeyError:
             raise NetworkNotFound(network_id=network_id)
 
-        for (dpid, port_no) in network:
-            self.send_event(EventNetworkPort(network_id, dpid, port_no, False))
-        self.send_event(EventNetworkDel(network_id))
-        del self[network_id]
+        ports = [NetworkPort(dpid, port_no) for (dpid, port_no) in network]
+        self.send_event(EventNetworkDel(network_id, ports))
 
     def list_ports(self, network_id):
         try:
