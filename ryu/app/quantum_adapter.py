@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import traceback
+
 from oslo.config import cfg
 
 try:
