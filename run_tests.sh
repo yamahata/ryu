@@ -117,7 +117,7 @@ run_integrated() {
   echo "Running integrated test ..."
 
   INTEGRATED_TEST_RUNNER="./ryu/tests/integrated/run_tests_with_ovs12.py"
-  sudo PYTHONPATH=. nosetests -s $INTEGRATED_TEST_RUNNER 
+  sudo PYTHONPATH=. ${wrapper} nosetests -s $INTEGRATED_TEST_RUNNER
 }
 #NOSETESTS="nosetests $noseopts $noseargs"
 NOSETESTS="${PYTHON} ./ryu/tests/run_tests.py $noseopts $noseargs"
