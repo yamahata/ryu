@@ -77,6 +77,8 @@ def main(app_lists, run_of_controller=True):
 
     from oslo.config import cfg
     app_lists.extend(cfg.CONF.app)
+    if run_of_controller:
+        app_lists.append('ryu.controller.controller')
 
     from ryu.base.app_manager import AppManager
     app_mgr = AppManager()
@@ -85,13 +87,6 @@ def main(app_lists, run_of_controller=True):
     app_mgr.instantiate_apps(**contexts)
 
     services = []
-
-    if run_of_controller:
-        from ryu.controller import controller
-        ctlr = controller.OpenFlowController()
-        thr = hub.spawn(ctlr)
-        services.append(thr)
-
     from ryu.app import wsgi
     webapp = wsgi.start_service(app_mgr)
     if webapp:

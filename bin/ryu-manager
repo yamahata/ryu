@@ -35,7 +35,7 @@ def main():
     # always enable ofp for now.
     app_lists = CONF.app_lists + ['ryu.controller.controller',
                                   'ryu.controller.ofp_handler']
-    ryu_main.main(app_lists, True)
+    ryu_main.main(app_lists, False)
 
 
 if __name__ == "__main__":
